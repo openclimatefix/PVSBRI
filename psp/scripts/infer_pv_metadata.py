@@ -80,17 +80,20 @@ def _infer_params(
     dates = date_counts.index
 
     # Keep only the data for those dates.
-    data = smooth[smooth["date"].isin(dates)]
+    data: pd.DataFrame = smooth[smooth["date"].isin(dates)]
     timestamps = data.index.get_level_values(1)
 
     # Only consider the "power" column.
-    data = data[C.power]
+    power_data: pd.Series = data[C.power]
+
+    # Ensure type consistency for the cost function.
+    power_data = power_data.astype(float)  # Ensure data is a Series of floats if needed
 
     # Normalize the data.
     if not learn_normalisation:
-        data = data / data.max()
+        power_data = power_data / power_data.max()
 
-    # Now define our objective function that we want to minimze.
+    # Now define our objective function that we want to minimize.
     def cost(params, lat: float, lon: float, timestamps: pd.DatetimeIndex):
         tilt, orientation, factor = params
         irr = get_irradiance(
@@ -105,7 +108,7 @@ def _infer_params(
         if not learn_normalisation:
             ref = ref / ref.max()
 
-        return ((data - ref * factor) ** 2).mean()
+        return ((power_data - ref * factor) ** 2).mean()
 
     result = scipy.optimize.minimize(
         cost,
